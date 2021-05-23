@@ -12,6 +12,17 @@ class Raw(Instance.PreformattedParam):
 
 class IoBuf(Module):
     def __init__(self, usbp_pin, usbn_pin, usb_pullup_pin=None):
+        reset_duration_in_s = 0.1
+        reset_cycles = int(32768 * reset_duration_in_s)
+        reset_counter = Signal(log2_int(reset_cycles, need_pow2=False)+1, reset=reset_cycles - 1)
+        usb_phy_reset = Signal(reset=1)
+        self.sync.lpclk += \
+            If(reset_counter != 0,
+                reset_counter.eq(reset_counter - 1)
+            ).Else(
+                usb_phy_reset.eq(0)
+            )
+
         # tx/rx io interface
         self.usb_tx_en = Signal()
         self.usb_p_tx = Signal()
@@ -54,10 +65,17 @@ class IoBuf(Module):
                 self.usb_p_rx.eq(usb_p_t_i),
                 self.usb_n_rx.eq(usb_n_t_i),
             ),
-            usb_p_t.oe.eq(self.usb_tx_en),
-            usb_n_t.oe.eq(self.usb_tx_en),
-            usb_p_t.o.eq(self.usb_p_tx),
-            usb_n_t.o.eq(self.usb_n_tx),
+            If(usb_phy_reset,
+                usb_p_t.oe.eq(1),
+                usb_n_t.oe.eq(1),
+                usb_p_t.o.eq(0),
+                usb_n_t.o.eq(0),
+            ).Else(
+                usb_p_t.oe.eq(self.usb_tx_en),
+                usb_n_t.oe.eq(self.usb_tx_en),
+                usb_p_t.o.eq(self.usb_p_tx),
+                usb_n_t.o.eq(self.usb_n_tx),
+            )
         ]
 
 
