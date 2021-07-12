@@ -163,7 +163,14 @@ class USBWishboneBurstBridge(Module, AutoDoc):
 
         self.burstcount = Signal(16)
         addr_to_wb = Signal(32)
-        self.sync += addr_to_wb.eq(self.address_synchronizer.o + self.burstcount) # must register this to meet timing
+        self.disable_wb = Signal()
+        self.sync += [
+            If(self.disable_wb,
+                addr_to_wb.eq(0x8000_0000) # force all wb access to the first word of ROM if disabled
+            ).Else(
+                addr_to_wb.eq(self.address_synchronizer.o + self.burstcount) # must register this to meet timing
+            )
+        ]
         self.comb += self.wishbone.adr.eq(addr_to_wb[2:])
 
         self.comb += self.wishbone.cti.eq(0),  # classic cycle
